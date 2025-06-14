@@ -4,6 +4,9 @@ Escriba el codigo que ejecute la accion solicitada.
 
 # pylint: disable=import-outside-toplevel
 
+import pandas as pd
+import glob
+import os
 
 def clean_campaign_data():
     """
@@ -49,9 +52,41 @@ def clean_campaign_data():
 
 
     """
+    datos = "files/input"
+    datos = load_input(datos)
+    datos = pd.concat(datos, ignore_index=True)
 
-    return
+    clientes = datos[['client_id',"age","job","marital","education","credit_default","mortgage"]].copy()
+    campaign = datos[['client_id', 'number_contacts', 'contact_duration', 'previous_campaign_contacts', 'previous_outcome', 'campaign_outcome']].copy()
+    economics = datos [ ['client_id', 'cons_price_idx', 'euribor_three_months']].copy()
 
+    clientes.job = clientes.job.str.replace(".","").str.replace("-","_")
+    clientes.education = clientes.education.str.replace(".","_").replace("unknown",pd.NA)
+    clientes.credit_default = clientes.credit_default.apply(lambda x: 1 if x == 'yes' else 0)
+    clientes.mortgage = clientes.mortgage.apply(lambda x: 1 if x == 'yes' else 0)
+
+    campaign.previous_outcome = campaign.previous_outcome.apply(lambda x: 1 if x == 'success' else 0)
+    campaign.campaign_outcome = campaign.campaign_outcome.apply(lambda x: 1 if x == 'yes' else 0)
+    campaign['last_contact_date'] = pd.to_datetime(datos['day'].astype(str) + '-' + datos['month'] + '-2022')
+
+    output="files/output"
+
+    if not os.path.exists(output):
+        os.makedirs(output)
+
+    clientes.to_csv(f'{output}/client.csv', index=False)
+    campaign.to_csv(f'{output}/campaign.csv', index=False)
+    economics.to_csv(f'{output}/economics.csv', index=False)
+
+
+def load_input(datos):
+    files=glob.glob(f"{datos}/*")
+    
+    dataframes = [
+        pd.read_csv(file, index_col=None)
+        for file in files
+    ]
+    return dataframes
 
 if __name__ == "__main__":
     clean_campaign_data()
